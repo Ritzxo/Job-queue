@@ -1,5 +1,5 @@
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 
@@ -25,6 +25,7 @@ def claim_job(db):
     job = db.scalars(stmt).first()
     if job:
         job.status = "running"
+        job.attempts += 1
         db.commit()
         db.refresh(job)
     return job
@@ -37,11 +38,24 @@ def main():
             if job is None:
                 time.sleep(1)
                 continue
-            process(job.payload)
-            job.status="done"
+            try:
+                process(job.payload)
+                job.status = "done"
+            except Exception as e:
+                handle_failure(job, e)
             db.commit()
         finally:
             db.close()
+
+
+def handle_failure(job, error):
+    job.last_error = str(error)
+    if job.attempts >= job.max_attempts:
+        job.status = "dead"
+    else:
+        job.status = "pending"
+        job.run_at = datetime.now(timezone.utc) + timedelta(seconds=2 ** job.attempts)
+
 
 if __name__ == "__main__":
     main()

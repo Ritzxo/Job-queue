@@ -61,11 +61,11 @@ Then open <http://127.0.0.1:8000/docs> for the interactive API documentation.
 - [x] Postgres in Docker Compose
 - [x] `jobs` table (SQLAlchemy model)
 - [x] Request and response models, database session dependency
-- [ ] `POST /jobs` to add a job
-- [ ] `GET /jobs/{id}` to check a job
-- [ ] Worker that claims and runs pending jobs
-- [ ] Retries with exponential backoff
-- [ ] Dead-letter state after `max_attempts` failures
+- [x] `POST /jobs` to add a job
+- [x] `GET /jobs/{id}` to check a job
+- [x] Worker that claims and runs pending jobs
+- [x] Retries with exponential backoff
+- [x] Dead-letter state after `max_attempts` failures
 - [ ] Safe with several workers at once (`FOR UPDATE SKIP LOCKED`)
 - [ ] `GET /jobs?status=dead` to list failed jobs
 - [ ] Automated tests with pytest, run in GitHub Actions
