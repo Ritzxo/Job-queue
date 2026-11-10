@@ -21,3 +21,27 @@ def claim_job(db):
         .limit(1)
         .with_for_update(skip_locked=True)
     )
+
+    job = db.scalars(stmt).first()
+    if job:
+        job.status = "running"
+        db.commit()
+        db.refresh(job)
+    return job
+
+def main():
+    while True:
+        db = SessionLocal()
+        try:
+            job = claim_job(db)
+            if job is None:
+                time.sleep(1)
+                continue
+            process(job.payload)
+            job.status="done"
+            db.commit()
+        finally:
+            db.close()
+
+if __name__ == "__main__":
+    main()
