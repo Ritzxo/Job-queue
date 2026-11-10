@@ -33,3 +33,11 @@ def create_job(job: JobCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_job)
     return new_job
+
+@app.get("/jobs/{job_id}", response_model=JobOut)
+def get_job(job_id: int, db: Session = Depends(get_db)):
+    job= db.get(JobDB, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail= f"job '{job_id}' was not found!")
+    return job
+
