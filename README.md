@@ -66,6 +66,6 @@ Then open <http://127.0.0.1:8000/docs> for the interactive API documentation.
 - [x] Worker that claims and runs pending jobs
 - [x] Retries with exponential backoff
 - [x] Dead-letter state after `max_attempts` failures
-- [ ] Safe with several workers at once (`FOR UPDATE SKIP LOCKED`)
+- [x] Safe with several workers at once (`FOR UPDATE SKIP LOCKED`)
 - [ ] `GET /jobs?status=dead` to list failed jobs
 - [ ] Automated tests with pytest, run in GitHub Actions
