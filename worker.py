@@ -32,20 +32,25 @@ def claim_job(db):
         db.refresh(job)
     return job
 
+def run_once(db):
+    job = claim_job(db)
+    if job is None:
+        return False
+    try:
+        process(job.payload)
+        job.status = "done"
+        job.last_error = None
+    except Exception as e:
+        handle_failure(job, e)
+    db.commit()
+    return True
+
 def main():
     while True:
         db = SessionLocal()
         try:
-            job = claim_job(db)
-            if job is None:
+            if not run_once(db):
                 time.sleep(1)
-                continue
-            try:
-                process(job.payload)
-                job.status = "done"
-            except Exception as e:
-                handle_failure(job, e)
-            db.commit()
         finally:
             db.close()
 
