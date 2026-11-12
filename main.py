@@ -1,7 +1,9 @@
+from sqlalchemy import select
 from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from database import SessionLocal, JobDB
+
 
 
 def get_db():
@@ -41,3 +43,11 @@ def get_job(job_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail= f"job '{job_id}' was not found!")
     return job
 
+@app.get("/jobs", response_model=list[JobOut])
+def list_jobs(status: str | None = None, db: Session = Depends(get_db)):
+    stmt = select(JobDB)
+    if status is not None:
+        stmt = stmt.where(JobDB.status == status)
+    stmt = stmt.order_by(JobDB.id)
+    jobs = db.scalars(stmt).all()
+    return jobs
