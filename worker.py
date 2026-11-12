@@ -5,12 +5,14 @@ from sqlalchemy import select
 
 from database import SessionLocal, JobDB
 
+import os
+
 
 def process(payload:str):
     time.sleep(2)
     if payload == "fail":
         raise Exception("Simulated processing failure")
-    print(f"Processed payload: {payload}")
+    print(f"[worker {os.getpid()}] Processed: {payload}")
     return f"Processed: {payload}"
 
 def claim_job(db):
