@@ -1,5 +1,7 @@
 # job-queue
 
+[![Tests](https://github.com/Ritzxo/job-queue/actions/workflows/tests.yml/badge.svg)](https://github.com/Ritzxo/job-queue/actions/workflows/tests.yml)
+
 A small background job queue built with Python, FastAPI and PostgreSQL.
 
 Clients add jobs through an HTTP API. The API only records the job and replies straight
@@ -55,6 +57,24 @@ uvicorn main:app --reload
 
 Then open <http://127.0.0.1:8000/docs> for the interactive API documentation.
 
+In a second terminal, start the worker:
+
+```bash
+python worker.py
+```
+
+## Run the tests
+
+```bash
+pytest -v
+```
+
+The tests cover every API endpoint and the worker's job lifecycle: a successful job is
+marked done, a failed job is retried with its next run pushed into the future, a job that
+reaches `max_attempts` becomes dead, and a job that isn't due yet is skipped. They use a
+throwaway SQLite database, and run automatically on every push through GitHub Actions.
+Postgres must be running (`docker compose up -d`), because the app connects to it on import.
+
 ## Roadmap
 
 - [x] Project setup, virtual environment, `.gitignore`
@@ -68,4 +88,4 @@ Then open <http://127.0.0.1:8000/docs> for the interactive API documentation.
 - [x] Dead-letter state after `max_attempts` failures
 - [x] Safe with several workers at once (`FOR UPDATE SKIP LOCKED`)
 - [x] `GET /jobs?status=dead` to list failed jobs
-- [ ] Automated tests with pytest, run in GitHub Actions
+- [x] Automated tests with pytest, run in GitHub Actions

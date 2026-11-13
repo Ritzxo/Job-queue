@@ -73,3 +73,57 @@ def test_list_jobs_filters_by_status():
 def test_create_job_without_payload_returns_422():
     response = client.post("/jobs", json={})
     assert response.status_code == 422
+
+def test_once_with_no_jobs_returns_false():
+    db = TestSession()
+    result = worker.run_once(db)
+    assert result is False
+    db.close()
+
+def test_successful_job_is_done():
+    db = TestSession()
+    db.add(JobDB(payload="send email"))
+    db.commit()
+
+    result = worker.run_once(db)
+    job = db.scalar(select(JobDB).where(JobDB.payload == "send email"))
+
+    assert result is True
+    assert job.status == "done"
+    assert job.attempts == 1
+    db.close()
+
+def test_failed_job_is_retried():
+    db = TestSession()
+    db.add(JobDB(payload="fail", max_attempts=5))
+    db.commit()
+    worker.run_once(db)
+    job = db.scalar(select(JobDB).where(JobDB.payload == "fail"))
+    assert job.status == "pending"
+    assert job.attempts == 1
+    assert job.last_error == "Simulated processing failure"
+    assert job.run_at.replace(tzinfo=timezone.utc) > datetime.now(timezone.utc)
+    db.close()
+
+def test_job_dies_after_max_attempts():
+    db = TestSession()
+    db.add(JobDB(payload="fail", attempts=4))
+    db.commit()
+    worker.run_once(db)
+    job = db.scalar(select(JobDB).where(JobDB.payload == "fail"))
+    assert job.status == "dead"
+    assert job.attempts == 5
+    assert job.last_error == "Simulated processing failure"
+    db.close()
+
+def test_job_not_yet_due_is_skipped():
+    db = TestSession()
+    db.add(JobDB(payload="send email", run_at=datetime.now(timezone.utc) + timedelta(hours=1)))
+    db.commit()
+    result = worker.run_once(db)
+    job = db.scalar(select(JobDB).where(JobDB.payload == "send email"))
+    assert result is False
+    assert job.status == "pending"
+    assert job.attempts == 0
+    db.close()
+
