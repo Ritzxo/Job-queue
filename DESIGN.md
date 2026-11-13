@@ -7,7 +7,8 @@ project does.
 
 - Accept work quickly and do it in the background, so callers never wait on slow tasks.
 - Survive failures: temporary errors are retried, permanent ones are kept for inspection.
-- Never lose a job, and never let two workers run the same job at the same time.
+- Never lose a job, and make sure every job runs at least once (see the at-least-once
+  trade-off below).
 
 ## The `jobs` table
 
@@ -60,5 +61,12 @@ pending --> running --> done
   back to `pending` if they have attempts left, or to `dead` if not. The attempt was already
   counted when the job was claimed, so a job that keeps crashing workers still reaches its
   limit.
+- **At-least-once, not exactly-once.** Recovery can't tell a dead worker from a slow one.
+  If a worker is still alive but takes longer than the timeout, another worker can reclaim
+  the job and both may finish it, so a job can occasionally run twice. That's the price of
+  never losing a job. Jobs should therefore be idempotent, meaning safe to run twice (for
+  example, record "email sent for job 42" and check it first). Ways to narrow the window:
+  a longer timeout than any job should take, a worker heartbeat that keeps refreshing
+  `locked_at` while it works, and having a worker only mark a job done if it still owns it.
 - **The API never runs jobs.** `POST /jobs` only records work and returns the id. This
   keeps responses fast and lets the worker be scaled or restarted independently.

@@ -7,20 +7,10 @@ on:
 jobs:
   pytest:
     runs-on: ubuntu-latest
-    services:
-      db:
-        image: postgres:16
-        env:
-          POSTGRES_USER: jobqueue
-          POSTGRES_PASSWORD: jobqueue
-          POSTGRES_DB: jobqueue
-        ports:
-          - 5433:5432
-        options: >-
-          --health-cmd "pg_isready -U jobqueue"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
+    # The tests use their own SQLite database, and database.py no longer connects
+    # on import, so CI doesn't need Postgres. DATABASE_URL just has to be set.
+    env:
+      DATABASE_URL: postgresql+psycopg2://unused:unused@localhost:5432/unused
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

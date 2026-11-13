@@ -13,7 +13,7 @@ I'm building it to learn the reliability ideas behind real event-processing syst
 retries, backoff, dead-letter queues, and safe concurrency between workers. It is the
 second project in my portfolio, after [inventory-api](https://github.com/Ritzxo/inventory-api).
 
-**Status: in progress.** See the roadmap below for what works today.
+**Status: complete.** Everything on the roadmap below is built and tested.
 
 ## How it works
 
@@ -25,8 +25,8 @@ client --> API (POST /jobs) --> [ jobs table in Postgres ] <-- worker (separate 
 
 - **The API** accepts a job, stores it with status `pending`, and returns its id.
 - **The worker** repeatedly claims a job that is due, runs it, and records the result.
-- **Retries** use exponential backoff: wait 1s, then 2s, then 4s, and so on, so a failing
-  service gets time to recover.
+- **Retries** use exponential backoff: the wait is `2 ** attempts` seconds, so 2s after
+  the first failure, then 4s, 8s and 16s, giving a failing service time to recover.
 - **Dead-letter state:** after `max_attempts` failures a job becomes `dead` instead of
   retrying forever.
 
@@ -44,6 +44,12 @@ python -m venv .venv
 # source .venv/bin/activate
 
 pip install -r requirements.txt
+
+# create your local settings file, then edit .env and set your own password
+# Windows (PowerShell):
+Copy-Item .env.example .env
+# macOS / Linux:
+# cp .env.example .env
 
 # start Postgres (listens on port 5433 on your machine)
 docker compose up -d
@@ -71,9 +77,27 @@ pytest -v
 
 The tests cover every API endpoint and the worker's job lifecycle: a successful job is
 marked done, a failed job is retried with its next run pushed into the future, a job that
-reaches `max_attempts` becomes dead, and a job that isn't due yet is skipped. They use a
-throwaway SQLite database, and run automatically on every push through GitHub Actions.
-Postgres must be running (`docker compose up -d`), because the app connects to it on import.
+reaches `max_attempts` becomes dead, a job that isn't due yet is skipped, and jobs stuck in
+`running` after a crash are recovered. They use a throwaway SQLite database, so Postgres
+doesn't need to be running, and they run automatically on every push through GitHub Actions.
+
+Because the tests use SQLite, they can't check the `FOR UPDATE SKIP LOCKED` row locking
+(SQLite doesn't support it). That was checked by hand instead, by running two workers
+against Postgres and confirming every job ran exactly once.
+
+## Configuration
+
+Settings are read from environment variables, loaded from a `.env` file if there is one.
+`.env` is ignored by git, so passwords stay out of the repository; `.env.example` shows
+what to set.
+
+| Variable | Used by | Purpose |
+|---|---|---|
+| `DATABASE_URL` | `database.py` | How the API and worker connect to Postgres |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | `docker-compose.yml` | Create the Postgres user and database |
+
+Tables are created by running `python database.py` once, not every time the code is
+imported.
 
 ## Roadmap
 
