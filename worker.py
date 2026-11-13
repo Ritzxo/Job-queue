@@ -27,10 +27,30 @@ def claim_job(db):
     job = db.scalars(stmt).first()
     if job:
         job.status = "running"
+        job.locked_at = datetime.now(timezone.utc)
         job.attempts += 1
         db.commit()
         db.refresh(job)
     return job
+
+def recover_stuck_jobs(db, timeout=timedelta(minutes=5)):
+    cutoff = datetime.now(timezone.utc) - timeout
+    stmt = (
+        select(JobDB)
+        .where(JobDB.status == "running", JobDB.locked_at < cutoff)
+        .with_for_update(skip_locked=True)
+    )
+    stuck_jobs = db.scalars(stmt).all()
+    for job in stuck_jobs:
+        job.last_error = "Worker timed out"
+        if job.attempts >= job.max_attempts:
+            job.status = "dead"
+        else:
+            job.status = "pending"
+            job.run_at = datetime.now(timezone.utc)
+    db.commit()
+    return len(stuck_jobs)
+
 
 def run_once(db):
     job = claim_job(db)
@@ -49,6 +69,7 @@ def main():
     while True:
         db = SessionLocal()
         try:
+            recover_stuck_jobs(db)
             if not run_once(db):
                 time.sleep(1)
         finally:

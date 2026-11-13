@@ -127,3 +127,38 @@ def test_job_not_yet_due_is_skipped():
     assert job.attempts == 0
     db.close()
 
+def test_stuck_job_is_recovered():
+    db = TestSession()
+    long_ago = datetime.now(timezone.utc) - timedelta(minutes=10)
+    db.add(JobDB(payload="send email", status="running", attempts=1, locked_at=long_ago))
+    db.commit()
+
+    count= worker.recover_stuck_jobs(db)
+    job = db.scalar(select(JobDB))
+
+    assert count == 1
+    assert job.status == "pending"
+    assert job.last_error == "Worker timed out"
+
+def test_stuck_job_out_of_attempts_is_dead():
+    db = TestSession()
+    long_ago = datetime.now(timezone.utc) - timedelta(minutes=10)
+    db.add(JobDB(payload="send email", status="running", attempts=5, locked_at=long_ago))
+    db.commit()
+    count = worker.recover_stuck_jobs(db)
+    job = db.scalar(select(JobDB))
+    assert count == 1
+    assert job.status == "dead"
+    db.close()
+
+def test_recently_claimed_job_is_left_alone():
+    db = TestSession()
+    just_now = datetime.now(timezone.utc) - timedelta(minutes=1)
+    db.add(JobDB(payload="send email", status="running", attempts=1, locked_at=just_now))
+    db.commit()
+    count = worker.recover_stuck_jobs(db)
+    job = db.scalar(select(JobDB))
+    assert count == 0
+    assert job.status == "running"
+    db.close()
+

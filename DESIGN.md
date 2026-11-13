@@ -20,6 +20,7 @@ project does.
 | `max_attempts` | integer, required | Attempts allowed before the job becomes `dead` |
 | `run_at` | timestamp with time zone, required | The earliest time the job may run |
 | `last_error` | text, optional | The most recent failure message, empty until a job fails |
+| `locked_at` | timestamp with time zone, optional | When a worker last claimed the job |
 
 The default values (`pending`, 0 attempts, 5 max attempts, `run_at` set to now) are
 applied by the application when it creates a job, not stored in the database. A row
@@ -37,7 +38,7 @@ pending --> running --> done
              dead
 ```
 
-## Planned design decisions
+## Design decisions
 
 - **A table in Postgres is the queue.** It keeps the system simple (one fewer service),
   and jobs are stored durably. A dedicated broker such as Kafka may replace it in the
@@ -51,5 +52,13 @@ pending --> running --> done
 - **`FOR UPDATE SKIP LOCKED` for claiming jobs.** With several workers, two could read
   the same pending job and both run it. Locking the row while claiming it, and letting
   other workers skip locked rows, prevents that.
+- **Recovering jobs after a worker crash.** A worker sets a job to `running` and commits
+  before doing the work. If the worker then dies, nothing would ever change that status,
+  and other workers only look for `pending` jobs, so the job would be stuck forever. Each
+  claim records `locked_at`, and every worker loop first looks for jobs that have been
+  `running` for longer than a timeout (5 minutes). Those count as a failed attempt: they go
+  back to `pending` if they have attempts left, or to `dead` if not. The attempt was already
+  counted when the job was claimed, so a job that keeps crashing workers still reaches its
+  limit.
 - **The API never runs jobs.** `POST /jobs` only records work and returns the id. This
   keeps responses fast and lets the worker be scaled or restarted independently.

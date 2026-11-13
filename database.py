@@ -17,6 +17,7 @@ class JobDB(Base):
     status: Mapped[str] = mapped_column(default='pending')
     attempts: Mapped[int] = mapped_column(default=0)
     run_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     max_attempts: Mapped[int] = mapped_column(default=5)
     last_error: Mapped[str | None]
 

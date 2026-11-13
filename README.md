@@ -89,3 +89,4 @@ Postgres must be running (`docker compose up -d`), because the app connects to i
 - [x] Safe with several workers at once (`FOR UPDATE SKIP LOCKED`)
 - [x] `GET /jobs?status=dead` to list failed jobs
 - [x] Automated tests with pytest, run in GitHub Actions
+- [x] Crash recovery: jobs stuck in `running` after a worker dies are retried or marked dead
